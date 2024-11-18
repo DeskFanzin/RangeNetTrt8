@@ -1,16 +1,12 @@
  RangeNetTrt8
 
-<div align="center">
-
-[English](README.md) | [简体中文](README_cn.md)
-
-</div>
-
 ## Purpose
 
-1. **Use more newer dependencies and APIs**. Specifically, we deploy the [RangeNet repository](https://github.com/PRBonn/rangenet_lib) in an environment with TensorRT 8+, Ubuntu 20.04+, remove Boost dependency, manage TensorRT objects and GPU memory with smart pointers, and provide ROS demo.
+1. **This is a fork for using rangenet_lib with SuMa++** As Suma++ uses old tensorrt versions, I found that upgrading the dependencies would be useful. So here it is, a new version of rangenet_lib especifically for usage with SuMa++. Most of the work was done by natsu-akatsuki, the original owner of this repo. Please be aware that ROS or any functions besides infer example are not implemented!
 
-2. <b>Faster Performance</b>. Resolve the issue of reduced segmentation accuracy when using FP16 ([issue#9](https://github.com/PRBonn/rangenet_lib/issues/9)), achieving a significant speed boost without sacrificing accuracy. Preprocess data using CUDA. Perform KNN post-processing with libtorch (refer to [here](https://github.com/PRBonn/lidar-bonnetal/blob/master/train/tasks/semantic/postproc/KNN.py)).
+2. **Use more newer dependencies and APIs**. Specifically, we deploy the [RangeNet repository](https://github.com/PRBonn/rangenet_lib) in an environment with TensorRT 8+, Ubuntu 20.04+, remove Boost dependency, manage TensorRT objects and GPU memory with smart pointers, and provide ROS demo.
+
+3. <b>Faster Performance</b>. Resolve the issue of reduced segmentation accuracy when using FP16 ([issue#9](https://github.com/PRBonn/rangenet_lib/issues/9)), achieving a significant speed boost without sacrificing accuracy. Preprocess data using CUDA. Perform KNN post-processing with libtorch (refer to [here](https://github.com/PRBonn/lidar-bonnetal/blob/master/train/tasks/semantic/postproc/KNN.py)).
 
 <p align="center">
 	<img src="assets/000000.png" alt="img" width=50% height=50% />
@@ -36,6 +32,8 @@ Step 2: Set up the deep learning environment (install NVIDIA driver, CUDA, Tenso
 | 20.04  | NVIDIA GeForce RTX 3060 | 8.4.1.5  | CUDA 11.3.r11.3 | cuDNN 8.0.5 | :heavy_check_mark: |
 | 22.04  | NVIDIA GeForce RTX 3060 | 8.2.5.1  | CUDA 11.3.r11.3 | cuDNN 8.8.0 | :heavy_check_mark: |
 | 22.04  | NVIDIA GeForce RTX 3060 | 8.4.1.5  | CUDA 11.3.r11.3 | cuDNN 8.8.0 | :heavy_check_mark: |
+| 22.04  | NVIDIA GeForce RTX 4070 | 8.4.1.5  | CUDA 11.7.r11.7 | cuDNN 8.8.0 | :heavy_check_mark: | 
+
 
 Add the following environment variables to ~/.bashrc:
 
@@ -59,9 +57,7 @@ export PATH=${PATH}:${CUDA_PATH}:${TENSORRT_PATH}
 export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:${CUDA_LIB_PATH}:${TENSORRT_LIB_PATH}
 ```
 
-Step 3: (Optional, if ROS components are needed). Please install ROS1 (Noetic) or ROS2 (Humble).
-
-Step 4: Install apt and Python packages
+Step 3: Install apt and Python packages
 
 ```bash
 $ sudo apt install build-essential python3-dev python3-pip apt-utils git cmake libboost-all-dev libyaml-cpp-dev libopencv-dev python3-empy
@@ -73,25 +69,7 @@ $ pip install catkin_tools trollius numpy
 Step 1: Clone the Repository
 
 ```bash
-$ git clone https://github.com/Natsu-Akatsuki/RangeNetTrt8 ~/rangetnet_pp/src
-```
-
-Step 2: Import model files. Please extract model.tar.gz into the rangenet_pp/src directory and create a data folder for additional resources. Related files are available on [Baidu Cloud](https://pan.baidu.com/s/1iXSWaEfZsfpRps1yvqMOrA?pwd=9394).
-
-<details>
-    <summary>Directory Structure</summary>
-
-```bash
-.
-├── model
-│   ├── arch_cfg.yaml
-│   ├── data_cfg.yaml
-│   └── model.onnx
-├── data
-└── ├── 000000.pcd
-    ├── kitti_2011_09_30_drive_0027_synced
-    └── kitti_2011_09_30_drive_0027_synced.bag
-    
+$ git clone https://github.com/DeskFanzin/RangeNetTrt8 ~/rangetnet_ws/src
 ```
 
 </details>
@@ -100,57 +78,6 @@ Step 2: Import model files. Please extract model.tar.gz into the rangenet_pp/src
 
 The first run may take some time to generate the TensorRT optimized engine.
 
-<details>
-    <summary>:wrench: <b>Usage 1：</b>
-        Run data in ROS1 or ROS2
-    </summary>
-
-<p align="center"> 
-  <img src="assets/ros.gif" alt="img" width=50% height=50% />
-</p>
-
-```bash
-# >>> ROS1 >>>
-$ cd ~/rangetnet_pp/
-$ catkin build
-$ source devel/setup.bash
-$ roslaunch rangenet_pp ros1_rangenet.launch
-$ roslaunch rangenet_pp ros1_bag.launch
-
-# >>> ROS2 >>>
-$ cd ~/rangetnet_pp/
-$ colcon build --symlink-install
-$ source install/setup.bash
-$ ros2 launch rangenet_pp ros2_rangenet.launch
-$ ros2 launch rangenet_pp ros2_bag.launch
-```
-
-</details>
-
-<details>
-    <summary>:wrench: <b>Usage 2：</b>
-        Predict single-frame point clouds (PCD format)
-    </summary>
-
-> [!note]
-> PCD point cloud fields must be xyzi, and the intensity field should be normalized (0-1).
-
-```bash
-# Modify the parameters in config/infer.yaml
-$ mkdir build
-$ cd build
-# To display inference time: cmake -DPERFORMANCE_LOG=ON .. && make
-$ cmake .. && make
-$ ./demo
-```
-
-|      Step      |    Time    |
-|:--------------:|:----------:|
-| Preprocessing  | 1.51363 ms |
-|   Inference    | 21.8513 ms |
-| Postprocessing | 4.98176 ms |
-
-</details>
 
 ## FAQ
 
