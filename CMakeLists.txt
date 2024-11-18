@@ -2,134 +2,128 @@ cmake_minimum_required(VERSION 3.5 FATAL_ERROR)
 project(rangenet_lib)
 
 # handle debug vs release mode
-#if (NOT CMAKE_BUILD_TYPE)
-#  set(CMAKE_BUILD_TYPE Release)
-#endif ()
+if(NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE Release)
+endif()
 
-set(CMAKE_CXX_STANDARD 14)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -O3")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_MWAITXINTRIN_H_INCLUDED")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_FORCE_INLINES")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D__STRICT_ANSI__")
+set(CMAKE_CXX_FLAGS "-Wall")
+set(CMAKE_CXX_FLAGS_DEBUG "-g -O0")
+set(CMAKE_CXX_FLAGS_RELEASE "-g -O3")
+
+## Use C++17
+set(CMAKE_CXX_STANDARD 17)
+
+# check flags
+message("Build type: ${CMAKE_BUILD_TYPE}")
 
 ## Find catkin macros and libraries
 find_package(catkin REQUIRED)
 
+# OpenCV (required)
+find_package(OpenCV REQUIRED)
+if(OpenCV_FOUND)
+  message("OpenCV Libs: ${OpenCV_LIBS}")
+else()
+  message(FATAL_ERROR "OpenCV NOT FOUND\n")
+endif()
+
 # libyaml-cpp (required)
-find_package(yaml-cpp)
+find_package(yaml-cpp REQUIRED)
 if (yaml-cpp_FOUND)
   message("YAML Libs: ${YAML_CPP_LIBRARIES}")
-  message("YAML Headers: ${YAML_CPP_INCLUDE_DIR}")
-else ()
+else()
   message(FATAL_ERROR "yaml-cpp NOT FOUND\n")
-endif (yaml-cpp_FOUND)
+endif()
 
-# get boost (required)
-find_package(Boost COMPONENTS program_options filesystem)
-if (Boost_FOUND)
+# Boost (required)
+find_package(Boost COMPONENTS program_options filesystem REQUIRED)
+if(Boost_FOUND)
   message("Boost Libs: ${Boost_LIBRARIES}")
-  message("Boost Headers: ${Boost_INCLUDE_DIRS}\n")
-else ()
+else()
   message(FATAL_ERROR "Boost NOT FOUND\n")
-endif ()
+endif()
 
-# cuda
-find_package(CUDA)
-#find_library(CUBLAS_LIBRARIES cublas HINTS
-#  ${CUDA_TOOLKIT_ROOT_DIR}/lib64
-#  ${CUDA_TOOLKIT_ROOT_DIR}/lib
-#  )
-include_directories(${CUDA_INCLUDE_DIRS})
-message("CUDA Libs: ${CUDA_LIBRARIES}")
-message("CUDA Headers: ${CUDA_INCLUDE_DIRS}")
+# CUDA (required)
+set(CUDA_TOOLKIT_ROOT_DIR /usr/local/cuda-11.7)
+find_package(CUDA REQUIRED)
+if(CUDA_FOUND)
+  message("CUDA SUCCESS!\n")
+  set(CUDA_INCLUDE_DIRS /usr/local/cuda-11.7/include)
+  set(CUDA_CUDART_LIBRARY /usr/local/cuda-11.7/lib64/libcudart.so)  # Dynamic linking
+  include_directories(${CUDA_INCLUDE_DIRS})
+else()
+  message(FATAL_ERROR "CUDA NOT FOUND\n")
+endif()
 
-# TensorRT
-find_library(NVINFER NAMES nvinfer)
-find_library(NVPARSERS NAMES nvparsers)
-find_library(NVINFER_PLUGIN NAMES nvinfer_plugin)
-find_library(NVONNX_PARSER NAMES nvonnxparser)
-set(TENSORRT_LIBRARIES ${NVINFER} ${NVPARSERS} ${NVINFER_PLUGIN} ${NVONNX_PARSER})
-set(TENSORRT_FOUND ON)
-message("TensorRT is available!")
+# TensorRT (required)
+set(TENSORRT_INCLUDE_DIR /home/lognav/TensorRT-8.4.3.1/targets/x86_64-linux-gnu/include)
+set(TENSORRT_LIBRARY_DIR /home/lognav/TensorRT-8.4.3.1/targets/x86_64-linux-gnu/lib)
+message("CUDA Include Path: ${CUDA_INCLUDE_DIRS}")
+message("CUDA Library: ${CUDA_CUDART_LIBRARY}")
+message("TensorRT Include Path: ${TENSORRT_INCLUDE_DIR}")
+message("TensorRT Library Path: ${TENSORRT_LIBRARY_DIR}")
 
-# CUDNN
-# try to find the CUDNN module
-find_library(CUDNN_LIBRARY
-  NAMES libcudnn.so${__cudnn_ver_suffix} libcudnn${__cudnn_ver_suffix}.dylib ${__cudnn_lib_win_name}
-  PATHS $ENV{LD_LIBRARY_PATH} ${__libpath_cudart} ${CUDNN_ROOT_DIR} ${PC_CUDNN_LIBRARY_DIRS} ${CMAKE_INSTALL_PREFIX}
-  PATH_SUFFIXES lib lib64 bin
-  DOC "CUDNN library.")
-message("CUDNN_LIBRARY: ${CUDNN_LIBRARY}")
+find_library(TENSORRT_LIB nvinfer PATHS ${TENSORRT_LIBRARY_DIR})
+find_library(NVONNX_PARSER nvonnxparser PATHS ${TENSORRT_LIBRARY_DIR})
+
+if(TENSORRT_LIB AND NVONNX_PARSER)
+  message("TensorRT and ONNX parser found!")
+else()
+  message(FATAL_ERROR "TensorRT libraries NOT FOUND\n")
+endif()
+
 
 ###################################
 ## catkin specific configuration ##
 ###################################
 catkin_package(
-  INCLUDE_DIRS
-  include
-  LIBRARIES
-  rangenet_external
-  rangenet_lib
+  INCLUDE_DIRS include
+  LIBRARIES rangenet_external rangenet_lib
   CATKIN_DEPENDS
-  DEPENDS
-  YAML_CPP
-  CFG_EXTRAS
+  DEPENDS YAML_CPP
 )
 
-
-###########################
-## Install header config ##
-###########################
 include_directories(
-  example
   include
-  ${rangenet_external_INCLUDE_DIRS}
   ${catkin_INCLUDE_DIRS}
   ${YAML_CPP_INCLUDE_DIR}
+  ${OpenCV_INCLUDE_DIRS}
+  ${CUDA_INCLUDE_DIRS}
+  ${TENSORRT_INCLUDE_DIR}
 )
 
-# turn config file into flags (sets TENSORRT_FOUND and TORCH_FOUND)
-#configure_file(include/external.hpp.in ${PROJECT_SOURCE_DIR}/include/external.hpp @ONLY)
-
-
-# make wrapper lib
+# Library for external dependencies
 add_library(rangenet_external src/external.cpp)
 
-## Declare a cpp library
-# define the network library (compiling tf and trt conditionally)
-set(rangenet_lib_SOURCES src/net.cpp src/selector.cpp src/netTensorRT.cpp)
+# rangenet_lib
+set(rangenet_lib_SOURCES src/net.cpp src/selector.cpp)
+if(TENSORRT_LIB)
+  list(APPEND rangenet_lib_SOURCES src/netTensorRT.cpp)
+endif()
 
-# make the library and link stuff to it
-cuda_add_library(rangenet_lib ${rangenet_lib_SOURCES})
-
+add_library(rangenet_lib ${rangenet_lib_SOURCES})
 target_link_libraries(rangenet_lib
   rangenet_external
   ${catkin_LIBRARIES}
   ${YAML_CPP_LIBRARIES}
+  ${OpenCV_LIBS}
+  ${CUDA_CUDART_LIBRARY}    # Link to libcudart_static.a
+  ${TENSORRT_LIB}
+  ${NVONNX_PARSER}
+)
+
+# Build example if enabled
+option(EXAMPLE "Building example" ON)
+if(EXAMPLE)
+  add_executable(infer example/infer.cpp)
+  target_link_libraries(infer
+    rangenet_lib
+    ${catkin_LIBRARIES}
+    ${OpenCV_LIBS}
+    ${Boost_LIBRARIES}
+    ${YAML_CPP_LIBRARIES}
+    ${CUDA_CUDART_LIBRARY}    # Link to libcudart_static.a
+    ${TENSORRT_LIB}
+    ${NVONNX_PARSER}
   )
-
-find_package(OpenCV COMPONENTS core viz)
-message("Building example...")
-message("OpenCV Libs: ${OpenCV_LIBS}")
-set(OpenCV_LIBRARIES ${OpenCV_LIBS})
-message("OpenCV Headers: ${OpenCV_INCLUDE_DIRS}")
-include_directories(${OpenCV_INCLUDE_DIRS})
-
-add_executable(infer example/infer.cpp)
-
-target_link_libraries(infer
-  rangenet_lib
-  ${TENSORRT_LIBRARIES}
-  ${CUDA_LIBRARIES}
-  ${CUBLAS_LIBRARIES}
-  ${CUDA_curand_LIBRARY}
-  ${CUDNN_LIBRARY}
-  ${catkin_LIBRARIES}
-  ${OpenCV_LIBRARIES}
-  ${Boost_LIBRARIES}
-  ${YAML_CPP_LIBRARIES}
-  )
-
-
-
-
+endif()

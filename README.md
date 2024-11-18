@@ -1,117 +1,95 @@
-# [RangeNetTrt8](https://github.com/Natsu-Akatsuki/RangeNetTrt8)
+# Rangenet Library
 
-本工程旨将[rangenet工程](https://github.com/PRBonn/rangenet_lib)部署到TensorRT8，ubuntu20.04中
+This repository contains simple usage explanations of how the RangeNet++ inference works with the TensorRT and C++ interface.
 
-## Feature
+Developed by [Xieyuanli Chen](https://www.ipb.uni-bonn.de/people/xieyuanli-chen/), [Andres Milioto](https://www.ipb.uni-bonn.de/people/andres-milioto/) and [Jens Behley](https://www.ipb.uni-bonn.de/people/jens-behley/).
 
-- 将代码部署环境提升到TensorRT8, ubuntu20.04
-- 提供docker环境
-- 修正了使用FP16，分割精度降低的问题[issue#9](https://github.com/PRBonn/rangenet_lib/issues/9)。使模型在保有精度的同时，预测速度大大提升
+For more details about RangeNet++, one could find in [LiDAR-Bonnetal](https://github.com/PRBonn/lidar-bonnetal).
 
-## 方法一：docker
+<p align="center">
+  <img width="460" height="300" src="pics/demo.png">
+</p>
 
-### 依赖
+---
+## How to use
 
-- nvidia driver
+#### Dependencies
 
-- [docker](https://ambook.readthedocs.io/zh/latest/docker/rst/docker-practice.html#docker)
-- [nvidia-container2](https://ambook.readthedocs.io/zh/latest/docker/rst/docker-practice.html#id4)
+##### System dependencies
+First you need to install the nvidia driver and CUDA.
 
-- 创建工作空间
+- CUDA Installation guide: [Link](https://docs.nvidia.com/cuda/cuda-installation-guide-linux/index.html)
 
-```bash
-$ git clone https://github.com/Natsu-Akatsuki/RangeNetTrt8 ~/docker_ws/RangeNetTrt8/src
-```
+- Then you can do the other dependencies:
 
-- 下载onnx模型
+  ```sh
+  $ sudo apt-get update 
+  $ sudo apt-get install -yqq  build-essential python3-dev python3-pip apt-utils git cmake libboost-all-dev libyaml-cpp-dev libopencv-dev
+  ```
+  
+##### Python dependencies
 
-```bash
-$ wget -c http://www.ipb.uni-bonn.de/html/projects/bonnetal/lidar/semantic/predictions/darknet53.tar.gz -O ~/docker_ws/RangeNetTrt8/src/darknet53.tar.gz
-$ cd ~/docker_ws/RangeNetTrt8/src && tar -xzvf darknet53.tar.gz
-```
+- Then install the Python packages needed:
 
-### 安装
+  ```sh
+  $ sudo apt install python-empy
+  $ sudo pip install catkin_tools trollius numpy
+  ```
+  
+##### TensorRT
 
-- 拉取镜像（镜像大小约为20G，需预留足够的空间）
+In order to infer with TensorRT during inference with the C++ libraries:
 
-```bash
-$ docker pull registry.cn-hangzhou.aliyuncs.com/gdut-iidcc/rangenet:1.0
-```
+- Install TensorRT: [Link](https://developer.nvidia.com/tensorrt).
+- Our code and the pretrained model now only works with **TensorRT version 5** (Note that you need at least version 5.1.0).
+- To make the code also works for higher versions of TensorRT, one could have a look at [here](https://github.com/PRBonn/rangenet_lib/issues/9).
 
-- 创建容器
+#### Build the library
+We use the catkin tool to build the library.
 
-```bash
-$ cd ~/docker_ws/RanageNetTrt8/src
-$ bash script/build_container_rangenet.sh
-# 编译和执行
-(docker) $ cd /docker_ws/RanageNetTrt8
-(docker) $ catkin_build
-(docker) $ /docker_ws/RanageNetTrt8/devel/lib/rangenet_lib/infer -s /docker_ws/RanageNetTrt8/src/example/000000.bin -p /docker_ws/RanageNetTrt8/src/darknet53 -v
-# s: sample
-# p: model dir
-# v: output verbose log
-```
+  ```sh
+  $ mkdir -p ~/catkin_ws/src
+  $ cd ~/catkin_ws/src
+  $ git clone https://github.com/ros/catkin.git 
+  $ git clone https://github.com/PRBonn/rangenet_lib.git
+  $ cd .. && catkin init
+  $ catkin build rangenet_lib
+  ```
 
-**NOTE**
+#### Run the demo
 
-首次运行生成TensorRT模型运行需要一段时间
+To run the demo, you need a pre-trained model, which can be downloaded here, [model](https://www.ipb.uni-bonn.de/html/projects/semantic_suma/darknet53.tar.gz). 
 
-![img](https://uploader.shimo.im/f/cSWXaAwOq9jzNIcv.png!thumbnail?accessToken=eyJhbGciOiJIUzI1NiIsImtpZCI6ImRlZmF1bHQiLCJ0eXAiOiJKV1QifQ.eyJhdWQiOiJhY2Nlc3NfcmVzb3VyY2UiLCJleHAiOjE2NDQ3MjE5NTksImciOiJRd3IzeHg4dnY5anZjcUNqIiwiaWF0IjoxNjQ0NzIxNjU5LCJ1c2VySWQiOjE3ODQ2NTA1fQ.aalZU_b-k0ilg08R1lfzBHirCLAqGTnQhpJngF9xYiA)
+A single LiDAR scan for running the demo, you could find in the example folder `example/000000.bin`. For more LiDAR data, you could download from [KITTI odometry dataset](https://www.cvlibs.net/datasets/kitti/eval_odometry.php).
 
-## 方法二：native PC
+For more details about how to train and evaluate a model, please refer to [LiDAR-Bonnetal](https://github.com/PRBonn/lidar-bonnetal).
 
-### 依赖
+To infer a single LiDAR scan and visualize the semantic point cloud:
 
-- ros1
-- nvidia driver
+  ```sh
+  # go to the root path of the catkin workspace
+  $ cd ~/catkin_ws
+  # use --verbose or -v to get verbose mode
+  $ ./devel/lib/rangenet_lib/infer -h # help
+  $ ./devel/lib/rangenet_lib/infer -p /path/to/the/pretrained/model -s /path/to/the/scan.bin --verbose
+  ```
 
-- TensorRT 8.0.03（tar包下载）, cuda_11.2.r11.2 cudnn 8.1.1（理论上使用其他版本的Trt也行，做好cuda等版本的适配即可）
+**Notice**: for the first time running, it will take several minutes to generate a `.trt` model for C++ interface.
 
-- apt package and python package
+## Applications
+#### Efficient LiDAR-based Semantic SLAM
+Using rangenet_lib, we built a LiDAR-based Semantic SLAM system, called SuMa++.
 
-```bash
-$ sudo apt install build-essential python3-dev python3-pip apt-utils git cmake libboost-all-dev libyaml-cpp-dev libopencv-dev python3-empy
-$ pip install catkin_tools trollius numpy
-```
+You could find more implementation details in [SuMa++](https://github.com/PRBonn/semantic_suma/).
 
-- 创建工作空间
+#### LiDAR-based Semantic Loop Closing
+OverlapNet is a LiDAR-based loop closure detection method, which uses multiple cues generated from LiDAR scans.
 
-```bash
-$ git clone https://github.com/Natsu-Akatsuki/RangeNetTrt8 ~/RangeNetTrt8/src
-```
+More information about our OverlapNet could be found [here](https://github.com/PRBonn/OverlapNet).
 
-- 下载onnx模型
+One could use our rangenet_lib to generate probabilities over semantic classes for training OverlapNet.
 
-```bash
-$ wget -c http://www.ipb.uni-bonn.de/html/projects/bonnetal/lidar/semantic/predictions/darknet53.tar.gz -O ~/RangeNetTrt8/src/darknet53.tar.gz
-$ cd ~/RangeNetTrt8/src && tar -xzvf darknet53.tar.gz
-```
-
-### 安装
-
-- 修改CMakeLists：将CMakeLists_v2.txt替换为CMakeLists.txt，修改其中的TensorRT等依赖库的路径
-- 编译
-
-```bash
-$ cd ~/RanageNetTrt8/src
-$ bash script/build_container_rangenet.sh
-# 编译和执行
-$ cd ~/RanageNetTrt8
-$ catkin_build
-```
-
-- 执行
-
-```bash
-$ ~/RanageNetTrt8/devel/lib/rangenet_lib/infer -s ~/RanageNetTrt8/src/example/000000.bin -p ~/RanageNetTrt8/src/darknet53 -v
-# s: sample
-# p: model dir
-# v: output verbose log
-```
-
-**NOTE**
-
-首次运行生成TensorRT模型运行需要一段时间
+More detailed steps and discussion could be found [here](https://github.com/PRBonn/rangenet_lib/issues/31).
 
 ## Citations
 

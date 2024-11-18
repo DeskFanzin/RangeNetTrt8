@@ -416,42 +416,83 @@ void NetTensorRT::deserializeEngine(const std::string &engine_path) {
  */
 void NetTensorRT::serializeEngine(const std::string &onnx_path,
                                   const std::string &engine_path) {
-  // feedback to user where I am
-  std::cout << "Trying to serialize engine and save to : " << engine_path
-            << " for next run" << std::endl;
+  // feedback to user where we are in the process
+  std::cout << "Trying to serialize engine and save to: " << engine_path << " for next run" << std::endl;
 
   // create inference builder
   IBuilder *builder = createInferBuilder(_gLogger);
-  assert(builder != nullptr);
+  if (!builder) {
+      std::cerr << "Failed to create inference builder." << std::endl;
+  }
+  std::cout << "Inference builder created successfully." << std::endl;
+
   builder->setMaxBatchSize(1);
-  const auto explicitBatch =
-      1U << static_cast<uint32_t>(
-          nvinfer1::NetworkDefinitionCreationFlag::kEXPLICIT_BATCH);
+  const auto explicitBatch = 1U << static_cast<uint32_t>(
+      nvinfer1::NetworkDefinitionCreationFlag::kEXPLICIT_BATCH);
+
   auto config = builder->createBuilderConfig();
-  config->setFlag(nvinfer1::BuilderFlag::kFP16);
+  if (!config) {
+      std::cerr << "Failed to create builder config." << std::endl;
+  }
+  std::cout << "Builder config created successfully." << std::endl;
+
+  config->setFlag(nvinfer1::BuilderFlag::kTF32);
   config->setMaxWorkspaceSize(1UL << 30);
   config->setFlag(BuilderFlag::kPREFER_PRECISION_CONSTRAINTS);
 
   INetworkDefinition *network = builder->createNetworkV2(explicitBatch);
-  assert(network != nullptr);
-  // generate a parser to get weights from onnx file
-  nvonnxparser::IParser *parser =
-      nvonnxparser::createParser(*network, _gLogger);
-  parser->parseFromFile(onnx_path.c_str(),
-                        static_cast<int>(Logger::Severity::kWARNING));
-  // This function allows building and serialization of a network without
-  // creating an engine note: this api from tensorrt 8.0.1
-  int i = 234;
-  auto layer = network->getLayer(i);
-  std::string layerName = layer->getName();
-  layer->setPrecision(nvinfer1::DataType::kFLOAT);
+  if (!network) {
+      std::cerr << "Failed to create network definition." << std::endl;
+  }
+  std::cout << "Network definition created successfully." << std::endl;
 
-  nvinfer1::IHostMemory *plan =
-      builder->buildSerializedNetwork(*network, *config);
-  assert(plan != nullptr);
+  // generate a parser to get weights from onnx file
+  nvonnxparser::IParser *parser = nvonnxparser::createParser(*network, _gLogger);
+  if (!parser) {
+      std::cerr << "Failed to create ONNX parser." << std::endl;
+  }
+  std::cout << "ONNX parser created successfully." << std::endl;
+
+  // parse the ONNX file
+  bool parsed = parser->parseFromFile(onnx_path.c_str(),
+                                      static_cast<int>(Logger::Severity::kWARNING));
+  if (!parsed) {
+      std::cerr << "Failed to parse ONNX file: " << onnx_path << std::endl;
+  }
+  std::cout << "ONNX file parsed successfully." << std::endl;
+
+  // Access and modify the specific layer if needed
+  //int targetLayerIndex = 130;
+  //auto layer = network->getLayer(targetLayerIndex);
+  //if (layer) {
+  //    std::string layerName = layer->getName();
+  //    std::cout << "Modifying layer at index " << targetLayerIndex << " with name: " << layerName << std::endl;
+  //    layer->setPrecision(nvinfer1::DataType::kFLOAT);
+  //} else {
+  //    std::cerr << "Layer at index " << targetLayerIndex << " not found." << std::endl;
+  //}
+
+  // build and serialize the network
+  nvinfer1::IHostMemory *plan = builder->buildSerializedNetwork(*network, *config);
+  if (!plan) {
+      std::cerr << "Failed to build serialized network." << std::endl;
+  }
+  std::cout << "Serialized network built successfully." << std::endl;
+
+  // Save serialized engine to file
   std::ofstream planFile(engine_path, std::ios::binary);
+  if (!planFile) {
+      std::cerr << "Failed to open engine file for writing: " << engine_path << std::endl;
+  }
+
   planFile.write(static_cast<char *>(plan->data()), plan->size());
+  if (planFile.good()) {
+      std::cout << "Engine serialized and saved to: " << engine_path << std::endl;
+  } else {
+      std::cerr << "Error writing serialized engine to file: " << engine_path << std::endl;
+  }
 }
+
 
 /**
  * @brief Prepare io buffers for inference with engine
