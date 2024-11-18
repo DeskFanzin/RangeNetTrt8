@@ -1,126 +1,191 @@
-# Rangenet Library
+ RangeNetTrt8
 
-This repository contains simple usage explanations of how the RangeNet++ inference works with the TensorRT and C++ interface.
+<div align="center">
 
-Developed by [Xieyuanli Chen](https://www.ipb.uni-bonn.de/people/xieyuanli-chen/), [Andres Milioto](https://www.ipb.uni-bonn.de/people/andres-milioto/) and [Jens Behley](https://www.ipb.uni-bonn.de/people/jens-behley/).
+[English](README.md) | [简体中文](README_cn.md)
 
-For more details about RangeNet++, one could find in [LiDAR-Bonnetal](https://github.com/PRBonn/lidar-bonnetal).
+</div>
+
+## Purpose
+
+1. **Use more newer dependencies and APIs**. Specifically, we deploy the [RangeNet repository](https://github.com/PRBonn/rangenet_lib) in an environment with TensorRT 8+, Ubuntu 20.04+, remove Boost dependency, manage TensorRT objects and GPU memory with smart pointers, and provide ROS demo.
+
+2. <b>Faster Performance</b>. Resolve the issue of reduced segmentation accuracy when using FP16 ([issue#9](https://github.com/PRBonn/rangenet_lib/issues/9)), achieving a significant speed boost without sacrificing accuracy. Preprocess data using CUDA. Perform KNN post-processing with libtorch (refer to [here](https://github.com/PRBonn/lidar-bonnetal/blob/master/train/tasks/semantic/postproc/KNN.py)).
 
 <p align="center">
-  <img width="460" height="300" src="pics/demo.png">
+	<img src="assets/000000.png" alt="img" width=50% height=50% />
 </p>
 
----
-## How to use
+## Prerequisites
 
-#### Dependencies
+### Step 1: Download and Extract libtorch
 
-##### System dependencies
-First you need to install the nvidia driver and CUDA.
+> **Note**  
+> Using the Torch library from Conda was observed to slow down the post-processing stage from 6 ms to 30 ms.
 
-- CUDA Installation guide: [Link](https://docs.nvidia.com/cuda/cuda-installation-guide-linux/index.html)
-
-- Then you can do the other dependencies:
-
-  ```sh
-  $ sudo apt-get update 
-  $ sudo apt-get install -yqq  build-essential python3-dev python3-pip apt-utils git cmake libboost-all-dev libyaml-cpp-dev libopencv-dev
-  ```
-  
-##### Python dependencies
-
-- Then install the Python packages needed:
-
-  ```sh
-  $ sudo apt install python-empy
-  $ sudo pip install catkin_tools trollius numpy
-  ```
-  
-##### TensorRT
-
-In order to infer with TensorRT during inference with the C++ libraries:
-
-- Install TensorRT: [Link](https://developer.nvidia.com/tensorrt).
-- Our code and the pretrained model now only works with **TensorRT version 5** (Note that you need at least version 5.1.0).
-- To make the code also works for higher versions of TensorRT, one could have a look at [here](https://github.com/PRBonn/rangenet_lib/issues/9).
-
-#### Build the library
-We use the catkin tool to build the library.
-
-  ```sh
-  $ mkdir -p ~/catkin_ws/src
-  $ cd ~/catkin_ws/src
-  $ git clone https://github.com/ros/catkin.git 
-  $ git clone https://github.com/PRBonn/rangenet_lib.git
-  $ cd .. && catkin init
-  $ catkin build rangenet_lib
-  ```
-
-#### Run the demo
-
-To run the demo, you need a pre-trained model, which can be downloaded here, [model](https://www.ipb.uni-bonn.de/html/projects/semantic_suma/darknet53.tar.gz). 
-
-A single LiDAR scan for running the demo, you could find in the example folder `example/000000.bin`. For more LiDAR data, you could download from [KITTI odometry dataset](https://www.cvlibs.net/datasets/kitti/eval_odometry.php).
-
-For more details about how to train and evaluate a model, please refer to [LiDAR-Bonnetal](https://github.com/PRBonn/lidar-bonnetal).
-
-To infer a single LiDAR scan and visualize the semantic point cloud:
-
-  ```sh
-  # go to the root path of the catkin workspace
-  $ cd ~/catkin_ws
-  # use --verbose or -v to get verbose mode
-  $ ./devel/lib/rangenet_lib/infer -h # help
-  $ ./devel/lib/rangenet_lib/infer -p /path/to/the/pretrained/model -s /path/to/the/scan.bin --verbose
-  ```
-
-**Notice**: for the first time running, it will take several minutes to generate a `.trt` model for C++ interface.
-
-## Applications
-#### Efficient LiDAR-based Semantic SLAM
-Using rangenet_lib, we built a LiDAR-based Semantic SLAM system, called SuMa++.
-
-You could find more implementation details in [SuMa++](https://github.com/PRBonn/semantic_suma/).
-
-#### LiDAR-based Semantic Loop Closing
-OverlapNet is a LiDAR-based loop closure detection method, which uses multiple cues generated from LiDAR scans.
-
-More information about our OverlapNet could be found [here](https://github.com/PRBonn/OverlapNet).
-
-One could use our rangenet_lib to generate probabilities over semantic classes for training OverlapNet.
-
-More detailed steps and discussion could be found [here](https://github.com/PRBonn/rangenet_lib/issues/31).
-
-## Citations
-
-If you use this library for any academic work, please cite the original [paper](https://www.ipb.uni-bonn.de/wp-content/papercite-data/pdf/milioto2019iros.pdf).
-
-```
-@inproceedings{milioto2019iros,
-  author    = {A. Milioto and I. Vizzo and J. Behley and C. Stachniss},
-  title     = {{RangeNet++: Fast and Accurate LiDAR Semantic Segmentation}},
-  booktitle = {IEEE/RSJ Intl.~Conf.~on Intelligent Robots and Systems (IROS)},
-  year      = 2019,
-  codeurl   = {https://github.com/PRBonn/lidar-bonnetal},
-  videourl  = {https://youtu.be/wuokg7MFZyU},
-}
+```bash
+$ wget -c https://download.pytorch.org/libtorch/cu113/libtorch-cxx11-abi-shared-with-deps-1.10.2%2Bcu113.zip -O libtorch.zip
+$ unzip libtorch.zip
 ```
 
-If you use SuMa++, please cite the corresponding [paper](https://www.ipb.uni-bonn.de/wp-content/papercite-data/pdf/chen2019iros.pdf):
+Step 2: Set up the deep learning environment (install NVIDIA driver, CUDA, TensorRT, cuDNN). The tested configurations are listed below. At least <u>3000 MB</u> of GPU memory is required.
 
+| Ubuntu |           GPU           | TensorRT |      CUDA       |    cuDNN    |         —          |
+|:------:|:-----------------------:|:--------:|:---------------:|:-----------:|:------------------:|
+| 20.04  |        TITAN RTX        |  8.2.3   | CUDA 11.4.r11.4 | cuDNN 8.2.4 | :heavy_check_mark: |
+| 20.04  | NVIDIA GeForce RTX 3060 | 8.4.1.5  | CUDA 11.3.r11.3 | cuDNN 8.0.5 | :heavy_check_mark: |
+| 22.04  | NVIDIA GeForce RTX 3060 | 8.2.5.1  | CUDA 11.3.r11.3 | cuDNN 8.8.0 | :heavy_check_mark: |
+| 22.04  | NVIDIA GeForce RTX 3060 | 8.4.1.5  | CUDA 11.3.r11.3 | cuDNN 8.8.0 | :heavy_check_mark: |
+
+Add the following environment variables to ~/.bashrc:
+
+```bash
+# Example configuration:
+
+# >>> Deep Learning Configuration >>>
+# Import CUDA environment
+CUDA_PATH=/usr/local/cuda/bin
+CUDA_LIB_PATH=/usr/local/cuda/lib64
+
+# Import TensorRT environment
+export TENSORRT_DIR=${HOME}/Application/TensorRT-8.4.1.5/
+TENSORRT_PATH=${TENSORRT_DIR}/bin
+TENSORRT_LIB_PATH=${TENSORRT_DIR}/lib
+
+# Import libtorch environment
+export Torch_DIR=${HOME}/Application/libtorch/share/cmake/Torch
+
+export PATH=${PATH}:${CUDA_PATH}:${TENSORRT_PATH}
+export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:${CUDA_LIB_PATH}:${TENSORRT_LIB_PATH}
 ```
-@inproceedings{chen2019iros, 
-  author    = {X. Chen and A. Milioto and E. Palazzolo and P. Giguère and J. Behley and C. Stachniss},
-  title     = {{SuMa++: Efficient LiDAR-based Semantic SLAM}},
-  booktitle = {Proceedings of the IEEE/RSJ Int. Conf. on Intelligent Robots and Systems (IROS)},
-  year      = {2019},
-  codeurl   = {https://github.com/PRBonn/semantic_suma/},
-  videourl  = {https://youtu.be/uo3ZuLuFAzk},
-}
+
+Step 3: (Optional, if ROS components are needed). Please install ROS1 (Noetic) or ROS2 (Humble).
+
+Step 4: Install apt and Python packages
+
+```bash
+$ sudo apt install build-essential python3-dev python3-pip apt-utils git cmake libboost-all-dev libyaml-cpp-dev libopencv-dev python3-empy
+$ pip install catkin_tools trollius numpy
 ```
 
-## License
+## Install
 
-Copyright 2019, Xieyuanli Chen, Andres Milioto, Jens Behley, Cyrill Stachniss, University of Bonn.
+Step 1: Clone the Repository
 
-This project is free software made available under the MIT License. For details see the LICENSE file.
+```bash
+$ git clone https://github.com/Natsu-Akatsuki/RangeNetTrt8 ~/rangetnet_pp/src
+```
+
+Step 2: Import model files. Please extract model.tar.gz into the rangenet_pp/src directory and create a data folder for additional resources. Related files are available on [Baidu Cloud](https://pan.baidu.com/s/1iXSWaEfZsfpRps1yvqMOrA?pwd=9394).
+
+<details>
+    <summary>Directory Structure</summary>
+
+```bash
+.
+├── model
+│   ├── arch_cfg.yaml
+│   ├── data_cfg.yaml
+│   └── model.onnx
+├── data
+└── ├── 000000.pcd
+    ├── kitti_2011_09_30_drive_0027_synced
+    └── kitti_2011_09_30_drive_0027_synced.bag
+    
+```
+
+</details>
+
+## Usage
+
+The first run may take some time to generate the TensorRT optimized engine.
+
+<details>
+    <summary>:wrench: <b>Usage 1：</b>
+        Run data in ROS1 or ROS2
+    </summary>
+
+<p align="center"> 
+  <img src="assets/ros.gif" alt="img" width=50% height=50% />
+</p>
+
+```bash
+# >>> ROS1 >>>
+$ cd ~/rangetnet_pp/
+$ catkin build
+$ source devel/setup.bash
+$ roslaunch rangenet_pp ros1_rangenet.launch
+$ roslaunch rangenet_pp ros1_bag.launch
+
+# >>> ROS2 >>>
+$ cd ~/rangetnet_pp/
+$ colcon build --symlink-install
+$ source install/setup.bash
+$ ros2 launch rangenet_pp ros2_rangenet.launch
+$ ros2 launch rangenet_pp ros2_bag.launch
+```
+
+</details>
+
+<details>
+    <summary>:wrench: <b>Usage 2：</b>
+        Predict single-frame point clouds (PCD format)
+    </summary>
+
+> [!note]
+> PCD point cloud fields must be xyzi, and the intensity field should be normalized (0-1).
+
+```bash
+# Modify the parameters in config/infer.yaml
+$ mkdir build
+$ cd build
+# To display inference time: cmake -DPERFORMANCE_LOG=ON .. && make
+$ cmake .. && make
+$ ./demo
+```
+
+|      Step      |    Time    |
+|:--------------:|:----------:|
+| Preprocessing  | 1.51363 ms |
+|   Inference    | 21.8513 ms |
+| Postprocessing | 4.98176 ms |
+
+</details>
+
+## FAQ
+
+<details> 
+    <summary>:question: <b>Issue 1:</b> 
+        [libprotobuf ERROR google/protobuf/text_format.cc:298] Error parsing text-format onnx2trt_onnx.ModelProto: 1:1:
+    </summary>
+
+The ONNX model is incomplete. Re-download the model.
+
+</details> 
+
+<details> 
+    <summary>:question: <b>Issue 2:</b> 
+        Abnormal prediction results when upgrading TensorRT from 8.2 to 8.4. See <a href="https://github.com/Natsu-Akatsuki/RangeNetTrt8/issues/8">issue#8</a>.
+    </summary>
+
+Skip optimization of weights in layer 235.
+
+</details> 
+
+<details> 
+    <summary>:question: <b>Issue 3:</b> 
+        error: A __device__ variable cannot be marked constexpr
+    </summary>
+
+The CUDA version is too low. Upgrade CUDA (issue#4). For lower versions like CUDA 11.1, refer to issue#2.
+
+</details> 
+
+<details> 
+    <summary>:question: <b>Issue 4:</b> 
+        Segmentation fault when visualizing single point cloud frames in Ubuntu 22.04 using PCL
+    </summary>
+
+Use PCL library version 1.13.0+. See more in [Here](https://github.com/PointCloudLibrary/pcl/pull/5252).
+
+</details>
