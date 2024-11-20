@@ -1,10 +1,11 @@
  RangeNetTrt8
+# IMPORTANT NOTE! #
+. **This is a fork for using rangenet_lib with SuMa++** As Suma++ uses old tensorrt versions, I found that upgrading the dependencies would be useful. So here it is, a new version of rangenet_lib especifically for usage with SuMa++. Most of the work was done by natsu-akatsuki, the original owner of this repo. Please be aware that ROS or any functions besides infer example are not implemented!
+
 
 ## Purpose
 
-1. **This is a fork for using rangenet_lib with SuMa++** As Suma++ uses old tensorrt versions, I found that upgrading the dependencies would be useful. So here it is, a new version of rangenet_lib especifically for usage with SuMa++. Most of the work was done by natsu-akatsuki, the original owner of this repo. Please be aware that ROS or any functions besides infer example are not implemented!
-
-2. **Use more newer dependencies and APIs**. Specifically, we deploy the [RangeNet repository](https://github.com/PRBonn/rangenet_lib) in an environment with TensorRT 8+, Ubuntu 20.04+, remove Boost dependency, manage TensorRT objects and GPU memory with smart pointers, and provide ROS demo.
+1. **Use more newer dependencies and APIs**. Specifically, we deploy the [RangeNet repository](https://github.com/PRBonn/rangenet_lib) in an environment with TensorRT 8+, Ubuntu 20.04+, remove Boost dependency, manage TensorRT objects and GPU memory with smart pointers, and provide ROS demo.
 
 3. <b>Faster Performance</b>. Resolve the issue of reduced segmentation accuracy when using FP16 ([issue#9](https://github.com/PRBonn/rangenet_lib/issues/9)), achieving a significant speed boost without sacrificing accuracy. Preprocess data using CUDA. Perform KNN post-processing with libtorch (refer to [here](https://github.com/PRBonn/lidar-bonnetal/blob/master/train/tasks/semantic/postproc/KNN.py)).
 
